@@ -32,8 +32,8 @@ options:
       - command to run on vz host machine
     required: true
     default: null
-    choises: ['create', 'destroy', 'mount', 'umount', 'stop', 'restart',
-        'status', 'start', 'create', 'set', 'exec', 'exec2']
+    choices: ['create', 'destroy', 'mount', 'umount', 'stop', 'restart',
+        'status', 'start', 'create', 'set', 'exec', 'exec2', 'list']
   create_magic:
     description:
       - If command is C(create), some default parameters will be applied and C(vzctl set) will be called after C(vzctl create).
@@ -52,11 +52,23 @@ options:
 
 import socket
 
+EXAMPLES = """
+# Create a VZ
+- openvz: command=create hostname=vm1.example.com
+
+# Create a VZ. CTID must be specified if create_magic is `no`
+- openvz: command=create ctid=42 hostname=vm1.example.com create_magic=no
+
+# Set OpenVZ facts. Creates the variable `openvz_vzs`, which is a list of dicts
+# containing detailed information about the VZs on this host
+- openvz: command=list
+"""
+
 VZCTL_SIMPLE_COMMANDS = [
     'destroy', 'mount', 'umount', 'stop', 'restart', 'status', 'start',
 ]
 VZCTL_COMMANDS = [
-    'create', 'set', 'exec', 'exec2',
+    'create', 'set', 'exec', 'exec2', 'list'
 ]
 VZCTL_COMMANDS.extend(VZCTL_SIMPLE_COMMANDS)
 
@@ -239,10 +251,16 @@ def vz_exec2():
         module.fail_json(msg='exec_cmd not specified')
     vz_simple_run_and_exit(module.params['exec_cmd'], False)
 
+def vz_list():
+    "Sets Ansible facts for the OpenVZ list"
+    rc, stdout, stderr = module.run_command('vzlist -aj')
+    _vz_list = module.from_json(stdout)
+    module.exit_json(ansible_facts={'openvz_vzs': _vz_list})
+
 def main():
     global module
     arg_spec  = dict(
-        command        = dict(required=True, choises=VZCTL_COMMANDS),
+        command        = dict(required=True, choices=VZCTL_COMMANDS),
         ctid           = dict(type='int'),
         ostemplate     = dict(type='str'),
         name           = dict(type='str'),
@@ -261,7 +279,7 @@ def main():
         swap           = dict(type='str'),
         nameserver     = dict(type='str'),
         searchdomain   = dict(type='str'),
-        onboot         = dict(choises=['yes', 'no']),
+        onboot         = dict(choices=['yes', 'no']),
         diskspace      = dict(type='str'),
 
         create_magic   = dict(default='yes', type='bool'),
