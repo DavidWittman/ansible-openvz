@@ -286,7 +286,7 @@ def main():
     )
     module = AnsibleModule(argument_spec = arg_spec)
     if module.params['command'] in VZCTL_SIMPLE_COMMANDS:
-        simple_run_and_exit()
+        vz_simple_run_and_exit()
 
     globals()['vz_' + module.params['command']]()
 
