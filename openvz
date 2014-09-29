@@ -99,8 +99,8 @@ def get_free_ctid_or_die():
             vzlist_err=vzlist_err
         )
     vzlist = sorted(map(lambda k: k[u'ctid'], module.from_json(vzlist)))
-    if not vzlist: vzlist = [0]
-    return vzlist[-1] + 1
+
+    return vzlist[-1] + 1 if vzlist else 1000
 
 def get_ipadd_or_die():
     ip = module.params['ipadd']
