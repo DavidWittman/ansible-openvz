@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # (c) 2013, Ilya Rusalowski <vikirus@gmail.com>
-# (c) 2014, David Wittman <dwittman@objectrocket.com>
+# (c) 2014, David Wittman <david@wittman.com>
 #
 # This module is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 # along with this software.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-DOCUMENTATION = '''
+DOCUMENTATION = """
 ---
 module: openvz
 short_description: Manages openvz virtual machines
@@ -43,26 +43,21 @@ options:
   exec_cmd:
     description:
       - If command is C(exec) or C(exec2), C(exec_cmd) will be executed in container as C(vzctl <ctid> exec <exec_cmd>).
-  examples:
-    - code: openvz command=create hostname=vm1.example.com
-      description: Create new vm with C(ctid) = C(max(vzlist -a ...)), C(ip) = C(host -t a hostname) (will fail if dns is not properly configured), C(name) = C(hostname). See C(CREATE_DEFAULTS) for default values of C(ostemplate), C(nameservers), ...
-    - code: openvz command=create ctid=42 hostname=vm1.example.com create_magic=no
-      description: Just call C(vzctl create 42 --hostname=vm1.example.com). C(ctid) must be specified in case of C(create_magic=no).
-'''
-
-import socket
+"""
 
 EXAMPLES = """
 # Create a VZ
 - openvz: command=create hostname=vm1.example.com
 
 # Create a VZ. CTID must be specified if create_magic is `no`
-- openvz: command=create ctid=42 hostname=vm1.example.com create_magic=no
+- openvz: command=create ctid=1042 hostname=vm1.example.com create_magic=no
 
 # Set OpenVZ facts. Creates the variable `openvz_vzs`, which is a list of dicts
 # containing detailed information about the VZs on this host
 - openvz: command=list
 """
+
+import socket
 
 VZCTL_SIMPLE_COMMANDS = [
     'destroy', 'mount', 'umount', 'stop', 'restart', 'status', 'start',
@@ -73,10 +68,10 @@ VZCTL_COMMANDS = [
 VZCTL_COMMANDS.extend(VZCTL_SIMPLE_COMMANDS)
 
 CREATE_DEFAULTS = {
-    'ostemplate': 'OR-centos-6.4-x86_64-v1.1',
-    'ram': '512M',
-    'swap': '0M',
-    'nameserver': '8.8.8.8 8.8.4.4',
+    'ostemplate': 'OR-centos-6.4-x86_64-v1.2',
+    'ram': '512m',
+    'swap': '1g',
+    'nameserver': '10.48.200.200 10.48.200.201',
     'searchdomain': 'objectrocket.com',
     'onboot': 'yes',
     'diskspace': '10G:10G',
@@ -201,6 +196,10 @@ def autofill_vzcreate_params():
 def vz_create():
     params = module.params
 
+    # TODO(dw): Set facts for VZ here when exiting?
+    if _vz_exists(params['hostname']):
+        module.exit_json(changed=False)
+
     if params['create_magic']:
         autofill_vzcreate_params()
     if not params['ctid']:
@@ -210,7 +209,7 @@ def vz_create():
 
     # generate and run commands
     cmd = "vzctl create \'%s\'" % (params['ctid'])
-    for p in ['ostemplate', 'hostname', 'name', 'ipadd', 'diskspace']:
+    for p in ('ostemplate', 'hostname', 'name', 'ipadd', 'diskspace'):
         if params[p]:
             cmd += " --%s \'%s\'" % (p, params[p])
 
@@ -218,10 +217,10 @@ def vz_create():
     if not params['create_magic']:
         module.exit_json(changed=True, ctid=params['ctid'], cmd=cmd)
 
-    # violate standart 'vzctl create' behaviour and 'vzctl set' some params
+    # violate standard 'vzctl create' behaviour and 'vzctl set' some params
     fin_cmd = [cmd]
     cmd = 'vzctl set %s' % (params['ctid'])
-    for p in ['ram', 'swap', 'nameserver', 'searchdomain', 'onboot']:
+    for p in ('ram', 'swap', 'nameserver', 'searchdomain', 'onboot'):
         if params[p]:
             cmd += " --%s \'%s\'" % (p, params[p])
     cmd += ' --save'
@@ -256,6 +255,17 @@ def vz_list():
     rc, stdout, stderr = module.run_command('vzlist -aj')
     _vz_list = module.from_json(stdout)
     module.exit_json(ansible_facts={'openvz_vzs': _vz_list})
+
+def _vz_exists(name):
+    list_command = "vzlist -o ctid -aHjh '%s'" % name
+    rc, vzlist, vzlist_err = module.run_command(list_command)
+    if rc != 0:
+        module.fail_json(
+            msg="Error running '%s'" % list_command,
+            vzlist_err=vzlist_err
+        )
+
+    return True if len(module.from_json(vzlist)) > 0 else False
 
 def main():
     global module
