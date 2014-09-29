@@ -43,6 +43,11 @@ options:
   exec_cmd:
     description:
       - If command is C(exec) or C(exec2), C(exec_cmd) will be executed in container as C(vzctl <ctid> exec <exec_cmd>).
+  start:
+    description:
+      - Start a container after creating it. Only valid with the 'run' command
+    required: false
+    default: true
 """
 
 EXAMPLES = """
@@ -73,7 +78,6 @@ CREATE_DEFAULTS = {
     'swap': '1g',
     'nameserver': '10.48.200.200 10.48.200.201',
     'searchdomain': 'objectrocket.com',
-    'onboot': 'yes',
     'diskspace': '10G:10G',
 }
 
@@ -235,6 +239,10 @@ def vz_create():
         # and apply differences
         write_netif_or_die()
 
+    if params['start']:
+        start_cmd = 'vzctl start %s' % params['ctid']
+        module.run_command(start_cmd, check_rc=True)
+
     module.exit_json(changed=True, ctid=params['ctid'], cmd=fin_cmd)
 
 def vz_set():
@@ -289,10 +297,10 @@ def main():
         swap           = dict(type='str'),
         nameserver     = dict(type='str'),
         searchdomain   = dict(type='str'),
-        onboot         = dict(choices=['yes', 'no']),
+        onboot         = dict(choices=['yes', 'no'], default='yes'),
         diskspace      = dict(type='str'),
-
-        create_magic   = dict(default='yes', type='bool'),
+        create_magic   = dict(choices=BOOLEANS, default=True),
+        start          = dict(choices=BOOLEANS, default=True)
     )
     module = AnsibleModule(argument_spec = arg_spec)
     if module.params['command'] in VZCTL_SIMPLE_COMMANDS:
