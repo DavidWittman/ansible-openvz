@@ -75,9 +75,9 @@ VZCTL_COMMANDS.extend(VZCTL_SIMPLE_COMMANDS)
 CREATE_DEFAULTS = {
     'ostemplate': 'OR-centos-6.4-x86_64-v1.2',
     'ram': '512m',
-    'swap': '1g',
-    'nameserver': '10.48.200.200 10.48.200.201',
-    'searchdomain': 'objectrocket.com',
+    'swap': '256m',
+    'nameserver': None,
+    'searchdomain': None,
     'diskspace': '10G:10G',
 }
 
